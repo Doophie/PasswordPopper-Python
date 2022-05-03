@@ -4,6 +4,7 @@ import socket
 import pyautogui
 import qrcode
 import base64
+import aes_cipher
 
 HOST = "192.168.0.15"
 PORT = 0
@@ -23,10 +24,11 @@ def open_socket():
         s.bind((HOST, PORT))
         s.listen()
 
-        secret_key = base64.b64encode(bytearray(os.urandom(32))).decode('utf-8')
+        secret_key = bytearray(os.urandom(32))
+        b64_key = base64.b64encode(secret_key).decode('utf-8')
         port = s.getsockname()[1]
 
-        qrcode.make(f"{ip}&{port}&{secret_key}").save("qr_code.jpg")
+        qrcode.make(f"{ip}&{port}&{b64_key}").save("qr_code.jpg")
 
         conn, addr = s.accept()
 
@@ -38,7 +40,7 @@ def open_socket():
                 if len(data) <= 0:
                     continue
 
-                result_string = data.decode('utf-8')
+                result_string = aes_cipher.AESCipher(secret_key).decrypt(data)
                 print(f"Got data {result_string}")
 
                 pyautogui.write(result_string, 0.01)
