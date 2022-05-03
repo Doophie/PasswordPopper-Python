@@ -40,10 +40,11 @@ def open_socket():
                 if len(data) <= 0:
                     continue
 
+                print("Got Something")
                 result_string = aes_cipher.AESCipher(secret_key).decrypt(data)
                 print(f"Got data {result_string}")
 
-                pyautogui.write(result_string, 0.01)
+                pyautogui.write(result_string.decode('utf-8'), 0.01)
 
                 conn.send(data)
 
