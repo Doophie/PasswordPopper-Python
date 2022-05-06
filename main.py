@@ -5,9 +5,9 @@ import pyautogui
 import qrcode
 import base64
 import aes_cipher
+import _thread as thread
 
-HOST = "192.168.0.15"
-PORT = 0
+secret_key = bytearray(os.urandom(32))
 
 
 def get_local_ip():
@@ -17,38 +17,52 @@ def get_local_ip():
     s.close()
     return ip
 
-def open_socket():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        ip = get_local_ip()
 
-        s.bind((HOST, PORT))
-        s.listen()
+ip = get_local_ip()
 
-        secret_key = bytearray(os.urandom(32))
-        b64_key = base64.b64encode(secret_key).decode('utf-8')
-        port = s.getsockname()[1]
 
-        qrcode.make(f"{ip}&{port}&{b64_key}").save("qr_code.jpg")
+def build_connection_params(s):
+    s.bind((ip, 0))
+    s.listen(5)
 
-        conn, addr = s.accept()
+    b64_key = base64.b64encode(secret_key).decode('utf-8')
+    port = s.getsockname()[1]
 
-        with conn:
-            print(f"Connect to {addr}")
+    qrcode.make(f"{ip}&{port}&{b64_key}").save("qr_code.jpg")
 
-            while True:
+
+def connect_to_client(conn, addr):
+    with conn:
+        print(f"Connect to {addr}")
+
+        while True:
+            try:
                 data = conn.recv(1024)
-                if len(data) <= 0:
-                    continue
+            except Exception:
+                print("connection closed")
+                break
 
-                print("Got Something")
-                result_string = aes_cipher.AESCipher(secret_key).decrypt(data)
-                print(f"Got data {result_string}")
+            if len(data) <= 0:
+                continue
 
-                pyautogui.write(result_string.decode('utf-8'), 0.01)
+            if data.decode('utf-8') == "ping-test":
+                print(f"Got ping test from {addr}")
+                conn.send("ack".encode("utf-8"))
+                continue
 
-                conn.send(data)
+            result_string = aes_cipher.AESCipher(secret_key).decrypt(data)
+            print(f"Got data {result_string}")
+
+            pyautogui.write(result_string.decode('utf-8'), 0.01)
+
+            conn.send("ack".encode("utf-8"))
 
 
 if __name__ == '__main__':
-    open_socket()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        build_connection_params(s)
 
+        while True:
+            conn, addr = s.accept()
+
+            thread.start_new_thread(connect_to_client, (conn, addr))
