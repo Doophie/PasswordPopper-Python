@@ -6,6 +6,7 @@ import qrcode
 import base64
 import aes_cipher
 import _thread as thread
+from PIL import Image
 
 secret_key = bytearray(os.urandom(32))
 
@@ -29,6 +30,8 @@ def build_connection_params(s):
     port = s.getsockname()[1]
 
     qrcode.make(f"{ip}&{port}&{b64_key}").save("qr_code.jpg")
+
+    Image.open("qr_code.jpg").show()
 
 
 def connect_to_client(conn, addr):
